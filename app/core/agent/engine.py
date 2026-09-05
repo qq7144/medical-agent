@@ -1,7 +1,17 @@
+"""MedLattice 引擎：主链路串行编排 + 子任务分层并行的咨询内核。
+
+引擎只负责三件事：
+1. 按阶段注册表装配 LangGraph 状态机（见 stages.py）；
+2. 提供图模式 run() 与流式模式 run_stream() 两个对外入口；
+3. 每轮回答收口后生成 TurnTrace 决策轨迹，供审计与前端诊断使用。
+
+阶段清单只有一份，图路径与流式路径共用，避免两套编排逻辑漂移。
+"""
 from __future__ import annotations
 
 import asyncio
 import json
+import time
 from collections.abc import AsyncGenerator
 from datetime import datetime
 
@@ -11,15 +21,8 @@ from app.common.exceptions import UserAuthException
 from app.common.logger import get_logger
 from app.core.agent.nodes import (
     commit_gate,
-    entity_extraction,
-    error_finalize,
     execute_node,
     fact_check,
-    input_check,
-    intent_recognition,
-    knowledge_retrieve,
-    llm_generate,
-    memory_load,
     memory_update,
     output_check_and_disclaimer,
     plan_node,
@@ -27,33 +30,22 @@ from app.core.agent.nodes import (
     response_plan,
 )
 from app.core.agent.state import AgentState
+from app.core.agent.stages import PRE_LLM_STAGES, STAGE_SEQUENCE
+from app.core.agent.turn_trace import build_turn_trace
 from app.core.llm.llm_service import LLMService
 
 logger = get_logger(__name__)
 
 
-class MedicalAgent:
+class MedLatticeEngine:
     def __init__(self):
         self.graph = self._build()
 
     def _build(self):
         g = StateGraph(AgentState)
 
-        g.add_node("input_check", input_check)
-        g.add_node("mem_load", memory_load)
-        g.add_node("intent_node", intent_recognition)
-        g.add_node("entities", entity_extraction)
-        g.add_node("knowledge", knowledge_retrieve)
-        g.add_node("plan", plan_node)
-        g.add_node("execute", execute_node)
-        g.add_node("reconcile", reconcile_node)
-        g.add_node("response_plan", response_plan)
-        g.add_node("llm", llm_generate)
-        g.add_node("fact_check", fact_check)
-        g.add_node("out", output_check_and_disclaimer)
-        g.add_node("commit", commit_gate)
-        g.add_node("mem", memory_update)
-        g.add_node("err", error_finalize)
+        for stage in STAGE_SEQUENCE:
+            g.add_node(stage.key, stage.fn)
 
         g.set_entry_point("input_check")
 
@@ -104,6 +96,7 @@ class MedicalAgent:
         if not user_id:
             raise UserAuthException("未授权")
 
+        t0 = time.perf_counter()
         state: dict = {
             "user_id": user_id,
             "session_id": session_id,
@@ -112,6 +105,18 @@ class MedicalAgent:
             "enable_archive_link": enable_archive_link,
         }
         out = await self.graph.ainvoke(state, config={"callbacks": None})
+        duration_ms = int((time.perf_counter() - t0) * 1000)
+        trace = build_turn_trace(out, duration_ms=duration_ms)
+        plan_steps = ((out.get("execution_plan") or {}).get("steps")) or []
+        logger.info(
+            "turn_trace user=%s session=%s intent=%s duration_ms=%s requested_steps=%s replan=%s",
+            user_id,
+            session_id,
+            out.get("intent", ""),
+            duration_ms,
+            len(plan_steps),
+            out.get("replan_count", 0),
+        )
 
         intent_analysis_raw = out.get("intent_analysis") or {}
         intent_analysis = None
@@ -135,6 +140,7 @@ class MedicalAgent:
             "target_agent": out.get("target_agent", ""),
             "needs_confirmation": bool(out.get("needs_confirmation")),
             "conversation_turns": len(history) // 2 if history else 0,
+            "turn_trace": trace,
         }
 
     async def run_stream(
@@ -148,6 +154,7 @@ class MedicalAgent:
         if not user_id:
             raise UserAuthException("未授权")
 
+        t0 = time.perf_counter()
         state: dict = {
             "user_id": user_id,
             "session_id": session_id,
@@ -156,22 +163,13 @@ class MedicalAgent:
             "enable_archive_link": enable_archive_link,
         }
 
-        pre_llm_nodes = [
-            ("input_check", input_check),
-            ("mem_load", memory_load),
-            ("intent_node", intent_recognition),
-            ("entities", entity_extraction),
-            ("knowledge", knowledge_retrieve),
-            ("plan", plan_node),
-        ]
-
-        for node_name, node_fn in pre_llm_nodes:
-            yield json.dumps({"type": "progress", "node": node_name}, ensure_ascii=False) + "\n"
-            state = await node_fn(state)
+        for stage in PRE_LLM_STAGES:
+            yield json.dumps({"type": "progress", "node": stage.key, "label": stage.label}, ensure_ascii=False) + "\n"
+            state = await stage.fn(state)
             if state.get("error_msg"):
                 yield json.dumps({"type": "error", "content": state.get("error_msg", "处理失败")}, ensure_ascii=False) + "\n"
                 return
-            if node_name == "intent_node":
+            if stage.key == "intent_node":
                 ia = state.get("intent_analysis") or {}
                 yield json.dumps({
                     "type": "intent",
@@ -363,12 +361,22 @@ class MedicalAgent:
         asyncio.create_task(self._async_memory_update(state))
 
         history = state.get("history") or []
+        duration_ms = int((time.perf_counter() - t0) * 1000)
+        trace = build_turn_trace(state, duration_ms=duration_ms)
+        logger.info(
+            "turn_trace stream user=%s session=%s intent=%s duration_ms=%s",
+            user_id,
+            session_id,
+            state.get("intent", ""),
+            duration_ms,
+        )
         yield json.dumps({
             "type": "done",
             "session_id": session_id,
             "intent": state.get("intent", "general"),
             "needs_confirmation": bool(state.get("needs_confirmation")),
             "conversation_turns": len(history) // 2 if history else 0,
+            "trace": trace,
         }, ensure_ascii=False) + "\n"
 
     @staticmethod

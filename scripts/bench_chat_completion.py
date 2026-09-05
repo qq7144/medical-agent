@@ -4,7 +4,7 @@ import argparse
 import asyncio
 import time
 
-from app.core.agent.workflow import MedicalAgent
+from app.core.agent.engine import MedLatticeEngine
 
 
 async def main() -> None:
@@ -16,7 +16,7 @@ async def main() -> None:
     p.add_argument("--stream", action="store_true")
     args = p.parse_args()
 
-    agent = MedicalAgent()
+    agent = MedLatticeEngine()
 
     for i in range(args.n):
         t0 = time.perf_counter()

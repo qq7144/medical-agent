@@ -3,12 +3,12 @@ from __future__ import annotations
 import asyncio
 import time
 
-from app.core.agent.workflow import MedicalAgent
+from app.core.agent.engine import MedLatticeEngine
 
 
 async def main() -> None:
     t0 = time.perf_counter()
-    out = await MedicalAgent().run(
+    out = await MedLatticeEngine().run(
         user_id="u_perf",
         session_id="s_perf",
         user_input="你好",

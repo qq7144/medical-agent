@@ -6,7 +6,7 @@ import asyncio
 
 from app.common.exceptions import UserAuthException
 from app.common.logger import get_logger, log_session_start, log_session_end
-from app.core.agent.workflow import MedicalAgent
+from app.core.agent.engine import MedLatticeEngine
 from app.core.memory.memory_service import MemoryService
 from app.core.memory.long_memory_service import LongMemoryService
 from app.schema.base import APIResponse
@@ -40,7 +40,7 @@ async def completion(req: ChatCompletionRequest, request: Request):
 
     try:
         t0 = time.perf_counter()
-        agent = MedicalAgent()
+        agent = MedLatticeEngine()
         t1 = time.perf_counter()
 
         log_session_start(
@@ -91,7 +91,7 @@ async def completion(req: ChatCompletionRequest, request: Request):
 async def _stream_generator(user_id: str, session_id: str, user_input: str, enable_archive_link: bool):
     t0 = time.perf_counter()
     try:
-        agent = MedicalAgent()
+        agent = MedLatticeEngine()
         log_session_start(
             session_id=session_id,
             user_id=user_id or "",

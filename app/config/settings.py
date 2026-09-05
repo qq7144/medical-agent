@@ -25,6 +25,10 @@ _load_env()
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=None, extra="ignore")
 
+    # 产品标识
+    APP_NAME: str = Field(default="MedLattice")
+    APP_VERSION: str = Field(default="1.1.0")
+
     # LLM
     LLM_API_BASE: str = Field(default="{{LLM_API地址}}")
     LLM_API_KEY: str = Field(default="{{LLM_API密钥}}")

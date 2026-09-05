@@ -30,3 +30,4 @@ class ChatCompletionResponse(BaseModel):
     target_agent: str = ""
     needs_confirmation: bool = False
     conversation_turns: int = 0
+    turn_trace: Optional[dict] = Field(default=None, description="回合决策轨迹（仅元数据）")
