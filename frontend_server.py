@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""
+前端Demo服务器
+提供医疗智能助手前端界面
+"""
+
+import os
+import sys
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+# Windows 控制台默认 GBK，emoji/中文 print 会 UnicodeEncodeError
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
+class FrontendHandler(SimpleHTTPRequestHandler):
+    """自定义HTTP处理器，支持SPA路由"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=os.path.join(os.path.dirname(__file__), 'frontend'), **kwargs)
+    
+    def do_GET(self):
+        # 处理前端路由，所有路径都返回index.html
+        if self.path.startswith('/api/'):
+            # API请求直接返回404，让前端直接请求后端
+            self.send_error(404, "API endpoint not found")
+        else:
+            # 静态文件服务
+            if self.path == '/' or not os.path.exists(os.path.join(self.directory, self.path[1:])):
+                self.path = '/index.html'
+            super().do_GET()
+    
+    def do_POST(self):
+        """处理POST请求，直接返回404，让前端直接请求后端"""
+        if self.path.startswith('/api/'):
+            self.send_error(404, "API endpoint not found")
+        else:
+            self.send_error(404, "File not found")
+    
+    def proxy_to_backend(self, method='GET'):
+        """将API请求代理到后端服务器"""
+        import urllib.request
+        import json
+        
+        try:
+            backend_url = f"http://localhost:8000{self.path}"
+            
+            # 读取请求体（如果是POST）
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length) if content_length > 0 else None
+            
+            # 创建请求
+            if method == 'POST':
+                req = urllib.request.Request(backend_url, data=post_data, method='POST')
+                req.add_header('Content-Type', 'application/json')
+            else:
+                req = urllib.request.Request(backend_url, method='GET')
+            
+            # 复制请求头
+            for header, value in self.headers.items():
+                if header.lower() not in ['host', 'content-length']:
+                    req.add_header(header, value)
+            
+            # 发送请求
+            try:
+                with urllib.request.urlopen(req) as response:
+                    self.send_response(response.getcode())
+                    
+                    # 复制响应头
+                    for header, value in response.headers.items():
+                        if header.lower() not in ['content-length', 'transfer-encoding', 'connection']:
+                            self.send_header(header, value)
+                    
+                    self.end_headers()
+                    
+                    # 复制响应体，直接写入原始数据
+                    response_data = response.read()
+                    self.wfile.write(response_data)
+            except urllib.error.HTTPError as e:
+                # 处理HTTP错误，包括401
+                try:
+                    self.send_response(e.code)
+                    
+                    # 复制响应头
+                    for header, value in e.headers.items():
+                        if header.lower() not in ['content-length', 'transfer-encoding', 'connection']:
+                            self.send_header(header, value)
+                    
+                    self.end_headers()
+                    
+                    # 复制响应体
+                    response_data = e.read()
+                    self.wfile.write(response_data)
+                except Exception as inner_e:
+                    # 处理内部错误，确保至少返回正确的状态码
+                    self.send_response(e.code)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    error_data = json.dumps({"detail": "未授权"}).encode('utf-8')
+                    self.wfile.write(error_data)
+                
+        except Exception as e:
+            # 处理Unicode编码问题
+            error_message = "后端服务不可用"
+            self.send_error(502, error_message)
+    
+    def log_message(self, format, *args):
+        """自定义日志格式"""
+        print(f"[前端服务器] {format % args}")
+
+def start_frontend_server(port=3000):
+    """启动前端服务器（浏览器由一键启动脚本负责打开，这里不做）"""
+    # 绑定 0.0.0.0 避免 localhost 解析到 IPv6 ::1 导致 127.0.0.1 访问不到
+    server = HTTPServer(('0.0.0.0', port), FrontendHandler)
+
+    print(f"前端Demo服务器启动成功!")
+    print(f"访问地址: http://localhost:{port}")
+    print(f"后端API: http://localhost:8000")
+    print("按 Ctrl+C 停止服务器")
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("服务器已停止")
+    finally:
+        server.server_close()
+
+if __name__ == "__main__":
+    start_frontend_server()

@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.so
+
+# Virtualenv
+.venv/
+venv/
+ENV/
+
+# Env files (never commit secrets)
+.env.local
+.env.prod
+.env
+
+# Logs & runtime data
+/data/logs/
+*.log
+
+# SQLite DB
+/data/sqlite/*.db
+
+# Chroma persistence
+/data/chroma/
+# Source data
+/data/source_data/
+/data/export/
+# Pytest
+.pytest_cache/
+
+# tests
+/tests/
+# IDE
+.vscode/
+# rag_tests
+/rag_comprehensive_assessment/
+
+# logs
+/logs/
+
+# 旧版本 / 设计文档归档
+/old_version/
+
+# Markdown 文档（不上传）
+*.md
+
+CLAUDE.md

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>医疗健康助手</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <!-- ================= 认证视图 ================= -->
+  <div class="auth-wrap" id="authView">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="auth-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" width="44" height="44">
+            <rect x="2" y="2" width="36" height="36" rx="12" fill="var(--c-accent)"/>
+            <path d="M20 12v16M12 20h16" stroke="var(--c-accent-ink)" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <h1 class="auth-title">医疗健康助手</h1>
+        <p class="auth-sub">您的智能健康顾问</p>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab is-active" data-mode="login" role="tab" aria-selected="true">登录</button>
+        <button type="button" class="auth-tab" data-mode="register" role="tab" aria-selected="false">注册</button>
+      </div>
+
+      <form class="auth-form" id="authForm" novalidate>
+        <div class="field">
+          <label class="field-label" for="phone">手机号</label>
+          <input class="field-input" type="tel" id="phone" autocomplete="tel" inputmode="numeric" placeholder="请输入 11 位手机号">
+        </div>
+        <div class="field" id="nicknameField" hidden>
+          <label class="field-label" for="nickname">昵称</label>
+          <input class="field-input" type="text" id="nickname" autocomplete="nickname" placeholder="怎么称呼你？">
+        </div>
+        <div class="field">
+          <label class="field-label" for="password">密码</label>
+          <input class="field-input" type="password" id="password" autocomplete="current-password" placeholder="请输入密码">
+        </div>
+
+        <p class="auth-error" id="authError" role="alert" hidden></p>
+
+        <button class="btn btn--primary btn--block" type="submit" id="authSubmit">登 录</button>
+      </form>
+
+      <p class="auth-note">演示账号：13900000001 / Passw0rd!</p>
+    </div>
+  </div>
+
+  <!-- ================= 应用视图 ================= -->
+  <div class="app" id="appView" hidden>
+
+    <!-- 侧边栏 -->
+    <aside class="sidebar" id="sidebar">
+      <div class="side-brand">
+        <span class="side-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" width="30" height="30">
+            <rect x="2" y="2" width="36" height="36" rx="10" fill="var(--c-accent)"/>
+            <path d="M20 12v16M12 20h16" stroke="var(--c-accent-ink)" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="side-title">医疗健康助手</span>
+      </div>
+
+      <button class="btn-newchat" id="newChatBtn" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        新对话
+      </button>
+
+      <div class="side-section-label">对话</div>
+      <nav class="session-list" id="sessionList" aria-label="会话列表">
+        <button class="session-item is-active" type="button">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="session-name">当前对话</span>
+        </button>
+      </nav>
+
+      <div class="side-footer">
+        <div class="side-user">
+          <span class="avatar avatar--user" id="sideAvatar">我</span>
+          <span class="side-username" id="sideUserName">—</span>
+        </div>
+        <button class="btn-ghost btn-ghost--sm" id="logoutBtn" type="button">退出登录</button>
+      </div>
+    </aside>
+    <div class="side-overlay" id="sideOverlay" hidden></div>
+
+    <!-- 主区 -->
+    <main class="main">
+      <header class="main-header">
+        <button class="hamburger" id="menuBtn" type="button" aria-label="打开菜单" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <div class="header-title">
+          <h1 class="header-name">医疗健康助手</h1>
+          <p class="header-sub" id="headerSub">智能问答 · 用药记录 · 化验解读</p>
+        </div>
+
+        <div class="header-right">
+          <span class="status-pill" title="服务状态"><span class="status-dot"></span>在线</span>
+          <span class="header-session" id="sessionId">新会话</span>
+        </div>
+      </header>
+
+      <div class="thread" id="chatScroll">
+        <div class="thread-inner">
+
+          <!-- 空态 -->
+          <div class="empty" id="emptyState">
+            <div class="empty-hero">
+              <span class="empty-mark" aria-hidden="true">
+                <svg viewBox="0 0 64 64" width="56" height="56">
+                  <circle cx="32" cy="32" r="30" fill="var(--c-accent-soft)" stroke="var(--c-rule)"/>
+                  <path d="M32 22v20M22 32h20" stroke="var(--c-accent)" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <h2 class="empty-title">您好，我是您的医疗健康助手</h2>
+              <p class="empty-desc">可以帮您做健康咨询、用药记录、药物相互作用检查、化验单解读。所有回复仅供参考，不构成医疗诊断或处方建议。</p>
+            </div>
+
+            <div class="cap-grid" id="suggestions">
+              <button class="cap-card" type="button" data-example="帮我记录一下我今天吃了布洛芬">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <rect x="3" y="5" width="14" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                  <path d="M8 12h6M11 9v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <span class="cap-title">记录用药</span>
+                <span class="cap-desc">记下今天吃了什么药</span>
+              </button>
+              <button class="cap-card" type="button" data-example="布洛芬和阿司匹林能一起吃吗？">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <path d="M12 3 3 8v5c0 5 3.8 8 9 8s9-3 9-8V8l-9-5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                  <path d="M12 8v6M9 11h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <span class="cap-title">检查药物冲突</span>
+                <span class="cap-desc">两种药能不能一起吃</span>
+              </button>
+              <button class="cap-card" type="button" data-example="帮我解读一下血常规化验单">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <path d="M9 3h6M10 3v6l-4 9a2 2 0 0 0 1.8 3h8.4A2 2 0 0 0 18 18l-4-9V3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="cap-title">解读化验单</span>
+                <span class="cap-desc">看懂指标含义</span>
+              </button>
+              <button class="cap-card" type="button" data-example="高血压患者日常饮食应该注意什么？">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <path d="M12 20s-7-4.6-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.4-7 10-7 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+                <span class="cap-title">健康咨询</span>
+                <span class="cap-desc">日常饮食与健康建议</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 消息列表 -->
+          <div class="messages" id="messageList" aria-live="polite"></div>
+
+          <!-- 运行详情（可折叠） -->
+          <details class="diagnostics" id="diagnostics">
+            <summary><span class="diag-caret"></span>运行详情</summary>
+            <dl class="diag-grid">
+              <div class="diag-item"><dt>会话 ID</dt><dd id="diagSession">—</dd></div>
+              <div class="diag-item"><dt>对话轮次</dt><dd id="diagTurns">0</dd></div>
+              <div class="diag-item"><dt>需确认</dt><dd id="diagConfirm">否</dd></div>
+              <div class="diag-item"><dt>意图</dt><dd id="diagIntent">—</dd></div>
+              <div class="diag-item"><dt>目标</dt><dd id="diagTarget">—</dd></div>
+              <div class="diag-item"><dt>置信度</dt><dd id="diagConfidence">—</dd></div>
+              <div class="diag-item diag-item--wide"><dt>原因</dt><dd id="diagReason">—</dd></div>
+            </dl>
+          </details>
+
+        </div>
+      </div>
+
+      <footer class="composer-wrap">
+        <div class="composer-inner">
+          <div class="composer-box">
+            <textarea class="composer-input" id="userInput" rows="1" placeholder="输入你的问题…（Enter 发送，Shift+Enter 换行）"></textarea>
+            <button class="send-btn" id="sendBtn" type="button" aria-label="发送" title="发送">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="M5 12 20 5l-5 14-3-7-7-1Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+          <p class="composer-hint">内容由 AI 生成，仅供参考，不构成医疗诊断或处方建议 · 如有不适请及时就医</p>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
